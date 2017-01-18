@@ -25,7 +25,7 @@ if sys.argv[-1] == 'test':
         raise RuntimeError('tests failed')
 
 setup(
-    name="csirtg_indicator",
+    name="apwgsdk",
     version=versioneer.get_version(),
     cmdclass=versioneer.get_cmdclass(),
     description="APWG Software Development Kid",
