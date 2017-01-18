@@ -11,6 +11,7 @@ before_install:
   - pip install -r dev_requirements.txt
 
 script:
+  - python setup.py develop
   - python setup.py test
   - python setup.py sdist bdist bdist_wheel
 
