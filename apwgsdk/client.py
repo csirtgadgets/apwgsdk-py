@@ -17,7 +17,8 @@ from csirtg_indicator.format.ztable import get_lines
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s[%(lineno)s] - %(message)s'
 LIMIT = 10000000
 APWG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-REMOTE = "https://api.ecrimex.net"
+REMOTE_DEFAULT = 'example.api.apwg.org'
+REMOTE = os.getenv('APWG_REMOTE', REMOTE_DEFAULT)
 TOKEN = os.environ.get('APWG_TOKEN')
 LAST_RUN_CACHE = os.environ.get('APWG_LAST_RUN_CACHE', '/tmp/.apwg_last_run')
 CONFIDENCE_DEFAULT = os.getenv('APWG_CREATE_CONFIDENCE', 50)
@@ -44,8 +45,6 @@ class Client(object):
 
         if self.group:
             self.remote = '{}/groups/{}'.format(self.remote, self.group)
-        else:
-            self.remote += '/phish'
 
         if not os.path.isdir(self.last_run_file):
             os.makedirs(self.last_run_file)
@@ -166,7 +165,11 @@ def main():
     p = ArgumentParser(
         description=textwrap.dedent('''\
         example usage:
+            $ export APWG_REMOTE=https://example.api.apwg.org # see relvant doc for api info
+            $ export APWG_TOKEN=123412341234
             $ apwg -v
+
+            $ apwg --indicator-create http://badguy.com/1.html --description paypal
         '''),
         formatter_class=RawDescriptionHelpFormatter,
         prog='apwg'
@@ -174,6 +177,7 @@ def main():
 
     p.add_argument('-d', '--debug', dest='debug', action="store_true")
 
+    p.add_argument('--remote', help="specify the remote uri [default %(default)s]", default=REMOTE)
     p.add_argument("--token", dest="token", help="specify token [default %(default)s]", default=TOKEN)
 
     p.add_argument("--limit", dest="limit", help="limit the number of records processed", default=500)
@@ -201,6 +205,10 @@ def main():
     logging.getLogger('').setLevel(loglevel)
     console.setFormatter(logging.Formatter(LOG_FORMAT))
     logging.getLogger('').addHandler(console)
+
+    if args.remote == REMOTE_DEFAULT:
+        print("\nThe correct API REMOTE URI needs to be supplied\nContact support@ecrimex.net for more information.\n")
+        raise SystemExit
 
     if args.indicator_create:
         cli = Client()
