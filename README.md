@@ -7,6 +7,7 @@
 ## Fetching the UBL
 ```bash
 $ export APWG_TOKEN=1234
+$ export APWG_REMOTE=https://api.apwg.org/endpoint-changeme
 $ pip install apwgsdk
 $ apwg -h
 $ apwg -d
