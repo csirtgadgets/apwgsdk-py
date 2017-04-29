@@ -1,2 +1,2 @@
 requests>=2.6
-csirtg_indicator>=0.0.0a24,<1.0
+csirtg_indicator>=0.0.0b17,<1.0
