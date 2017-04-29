@@ -17,9 +17,11 @@ from csirtg_indicator.format.ztable import get_lines
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s[%(lineno)s] - %(message)s'
 LIMIT = 10000000
 APWG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
-REMOTE = "https://api.ecrimex.net/phish"
+REMOTE = "https://api.ecrimex.net"
 TOKEN = os.environ.get('APWG_TOKEN')
 LAST_RUN_CACHE = os.environ.get('APWG_LAST_RUN_CACHE', '/tmp/.apwg_last_run')
+CONFIDENCE_DEFAULT = os.getenv('APWG_CREATE_CONFIDENCE', 50)
+GROUP = os.getenv('APWG_GROUP')
 
 logger = logging.getLogger(__name__)
 
@@ -32,11 +34,18 @@ class Client(object):
         self.remote = REMOTE
         self.timeout = timeout
         self.token = token
+        self.group = kwargs.get('group', GROUP)
         self.last_run_file = lastrun
         self.hours = kwargs.get('hours', 24)
 
         self.session = requests.Session()
         self.session.headers['User-Agent'] = 'apwgsdk-py/{}'.format(VERSION)
+        self.session.headers['Content-Type'] = 'application/json'
+
+        if self.group:
+            self.remote = '{}/groups/{}'.format(self.remote, self.group)
+        else:
+            self.remote += '/phish'
 
         if not os.path.isdir(self.last_run_file):
             os.makedirs(self.last_run_file)
@@ -52,6 +61,20 @@ class Client(object):
 
         if body.status_code == 401:
             raise RuntimeError('unauthorized')
+
+    def _post(self, uri, data):
+        if not uri.startswith('http'):
+            uri = self.remote + uri
+
+        resp = self.session.post(uri, data=data)
+
+        if resp.status_code == 201:
+            return json.loads(resp.text)
+
+        if resp.status_code == 401:
+            raise RuntimeError('unauthorized')
+
+        raise RuntimeError(resp.text)
 
     def _last_run(self):
         end = datetime.utcnow()
@@ -113,6 +136,31 @@ class Client(object):
 
         self._update_last_run(no_last_run=no_last_run)
 
+    def indicators_create(self, indicator=None, confidence=None, description=None, lasttime=datetime.utcnow()):
+        if isinstance(lasttime, str):
+            lasttime = datetime.fromtimestamp(lasttime).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+        # normalize the url
+        i = Indicator(**{
+            "indicator": indicator,
+            "lasttime": lasttime,
+            "description": description,
+            "confidence": int(confidence),
+        })
+        lasttime = int((i.lasttime - datetime(1970, 1, 1)).total_seconds())
+        u = {
+            'url': i.indicator,
+            'date_discovered': lasttime,
+            'confidence_level': int(i.confidence),
+        }
+
+        if i.description:
+            u['brand'] = i.description
+
+        uri = self.remote + '?t=%s' % self.token
+        data = json.dumps(u)
+        return self._post(uri, data)
+
 
 def main():
     p = ArgumentParser(
@@ -126,13 +174,22 @@ def main():
 
     p.add_argument('-d', '--debug', dest='debug', action="store_true")
 
-    p.add_argument("--token", dest="token", help="specify token")
+    p.add_argument("--token", dest="token", help="specify token [default %(default)s]", default=TOKEN)
 
     p.add_argument("--limit", dest="limit", help="limit the number of records processed", default=500)
     p.add_argument("--last-run-cache", default=LAST_RUN_CACHE)
     p.add_argument("--past-hours", help="number of hours to go back and retrieve", default=24)
 
     p.add_argument("--no-last-run", help="do not modify lastrun file", action="store_true")
+
+    p.add_argument('--indicator-create', help="specify an indicator to be created")
+    p.add_argument('-c', '--confidence', help="specify confidence level of indicator [default %(default)s",
+                   default=CONFIDENCE_DEFAULT)
+    p.add_argument('--description', help='description of indicator')
+    p.add_argument('--lasttime', help='last time indicator was observed [default %s(default)s]',
+                   default=datetime.utcnow())
+
+    p.add_argument('--group')
 
     args = p.parse_args()
 
@@ -144,6 +201,21 @@ def main():
     logging.getLogger('').setLevel(loglevel)
     console.setFormatter(logging.Formatter(LOG_FORMAT))
     logging.getLogger('').addHandler(console)
+
+    if args.indicator_create:
+        cli = Client()
+        try:
+            r = cli.indicators_create(indicator=args.indicator_create, confidence=args.confidence,
+                                      description=args.description, lasttime=args.lasttime)
+            logger.info('indicator created successfully: {}'.format(r['id']))
+            if args.debug:
+                pprint(r)
+
+        except Exception as e:
+            logger.debug(e)
+            logger.error('error creating indicator')
+
+        raise SystemExit
 
     cli = Client(hours=args.past_hours)
 
