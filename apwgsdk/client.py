@@ -53,7 +53,7 @@ class Client(object):
         if not uri.startswith('http'):
             uri = self.remote + uri
 
-        body = self.session.get(uri, params=params, verify=True)
+        body = self.session.get(uri, params=params, verify=True, timeout=self.timeout)
 
         if body.status_code == 200:
             return json.loads(body.text)
@@ -65,7 +65,7 @@ class Client(object):
         if not uri.startswith('http'):
             uri = self.remote + uri
 
-        resp = self.session.post(uri, data=data)
+        resp = self.session.post(uri, data=data, timeout=self.timeout)
 
         if resp.status_code == 201:
             return json.loads(resp.text)
