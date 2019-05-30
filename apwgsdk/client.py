@@ -12,7 +12,7 @@ import json
 import requests
 from . import VERSION
 from csirtg_indicator import Indicator
-from csirtg_indicator.format.ztable import get_lines
+from csirtg_indicator.format import FORMATS
 
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s[%(lineno)s] - %(message)s'
 LIMIT = 10000000
@@ -247,12 +247,15 @@ def main():
     cli = Client(hours=args.past_hours)
 
     indicators = cli.indicators(no_last_run=args.no_last_run, limit=args.limit)
+    cols = ['last_at',
+            'indicator',
+            'confidence',
+            'description']
 
-    for s in get_lines(reversed(list(indicators)), cols=['last_at',
-                                                         'indicator',
-                                                         'confidence',
-                                                         'description']):
-        print(s)
+    for l in FORMATS['table'](data=sorted(indicators,
+                                          key=lambda i: i['reported_at']),
+                              cols=cols):
+        print(l)
 
 
 if __name__ == "__main__":
