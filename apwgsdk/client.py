@@ -102,7 +102,7 @@ class Client(object):
         with open(os.path.join(self.last_run_file, "lastrun"), "w") as f:
             f.write(str(end))
 
-    def indicators(self, limit=500, no_last_run=False):
+    def indicators(self, limit=500, no_last_run=False, confidence=4):
         start, end = self._last_run()
         if isinstance(limit, str):
             limit = int(limit)
@@ -120,10 +120,10 @@ class Client(object):
             i["url"] = i["url"].lstrip()
             yield Indicator(**{
                 "indicator": i["url"],
-                "lasttime": datetime.fromtimestamp(i['date_discovered']).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "last_at": datetime.fromtimestamp(i['date_discovered']).strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "tags": 'phishing',
                 "description": i["brand"],
-                "confidence": i['confidence_level'],
+                "confidence": confidence,
                 "itype": "url",
                 "provider": "apwg.org",
             })
@@ -142,7 +142,7 @@ class Client(object):
         # normalize the url
         i = Indicator(**{
             "indicator": indicator,
-            "lasttime": lasttime,
+            "last_at": lasttime,
             "description": description,
             "confidence": int(confidence),
         })
@@ -190,7 +190,7 @@ def main():
     p.add_argument('-c', '--confidence', help="specify confidence level of indicator [default %(default)s",
                    default=CONFIDENCE_DEFAULT)
     p.add_argument('--description', help='description of indicator')
-    p.add_argument('--lasttime', help='last time indicator was observed [default %s(default)s]',
+    p.add_argument('--last_at', help='last time indicator was observed [default %s(default)s]',
                    default=datetime.utcnow())
 
     p.add_argument('--group')
@@ -229,8 +229,9 @@ def main():
 
     indicators = cli.indicators(no_last_run=args.no_last_run, limit=args.limit)
 
-    for s in get_lines(reversed(list(indicators)), cols=['lasttime', 'indicator', 'confidence', 'description']):
+    for s in get_lines(reversed(list(indicators)), cols=['last_at', 'indicator', 'confidence', 'description']):
         print(s)
+
 
 if __name__ == "__main__":
     main()
