@@ -43,7 +43,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         'requests',
-        'csirtg_indicator>=2.0,<3.0'
+        'csirtg_indicator==2.0a24'
     ],
     entry_points={
        'console_scripts': [
