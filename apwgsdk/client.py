@@ -12,7 +12,7 @@ import json
 import requests
 from . import VERSION
 from csirtg_indicator import Indicator
-from csirtg_indicator.format.ztable import get_lines
+from csirtg_indicator.format import FORMATS
 
 LOG_FORMAT = '%(asctime)s - %(levelname)s - %(name)s[%(lineno)s] - %(message)s'
 LIMIT = 10000000
@@ -29,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 class Client(object):
 
-    def __init__(self, token=TOKEN, proxy=None, timeout=300, lastrun=LAST_RUN_CACHE, **kwargs):
+    def __init__(self, token=TOKEN, proxy=None, timeout=300,
+                 lastrun=LAST_RUN_CACHE, **kwargs):
 
         self.proxy = proxy
         self.remote = REMOTE
@@ -53,7 +54,8 @@ class Client(object):
         if not uri.startswith('http'):
             uri = self.remote + uri
 
-        body = self.session.get(uri, params=params, verify=True, timeout=self.timeout)
+        body = self.session.get(uri, params=params, verify=True,
+                                timeout=self.timeout)
 
         if body.status_code == 200:
             return json.loads(body.text)
@@ -102,17 +104,18 @@ class Client(object):
         with open(os.path.join(self.last_run_file, "lastrun"), "w") as f:
             f.write(str(end))
 
-    def indicators(self, limit=500, no_last_run=False):
+    def indicators(self, limit=500, no_last_run=False, confidence=4):
         start, end = self._last_run()
         if isinstance(limit, str):
             limit = int(limit)
 
-        uri = "{}?t={}&dd_date_start={}&dd_date_end={}&confidence_low=90".format(
-            self.remote,
-            self.token,
-            start.strftime('%s'),
-            end.strftime('%s'),
-        )
+        uri = "{}?t={}&dd_date_start={}&dd_date_end={}&confidence_low=90"\
+            .format(
+                self.remote,
+                self.token,
+                start.strftime('%s'),
+                end.strftime('%s'),
+            )
 
         body = self._get(uri)
 
@@ -120,10 +123,11 @@ class Client(object):
             i["url"] = i["url"].lstrip()
             yield Indicator(**{
                 "indicator": i["url"],
-                "lasttime": datetime.fromtimestamp(i['date_discovered']).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                "last_at": datetime.fromtimestamp(i['date_discovered'])
+                            .strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "tags": 'phishing',
                 "description": i["brand"],
-                "confidence": i['confidence_level'],
+                "confidence": confidence,
                 "itype": "url",
                 "provider": "apwg.org",
             })
@@ -135,14 +139,16 @@ class Client(object):
 
         self._update_last_run(no_last_run=no_last_run)
 
-    def indicators_create(self, indicator=None, confidence=None, description=None, lasttime=datetime.utcnow()):
+    def indicators_create(self, indicator=None, confidence=None,
+                          description=None, lasttime=datetime.utcnow()):
         if isinstance(lasttime, str):
-            lasttime = datetime.fromtimestamp(lasttime).strftime("%Y-%m-%dT%H:%M:%SZ")
+            lasttime = datetime.fromtimestamp(lasttime)\
+                .strftime("%Y-%m-%dT%H:%M:%SZ")
 
         # normalize the url
         i = Indicator(**{
             "indicator": indicator,
-            "lasttime": lasttime,
+            "last_at": lasttime,
             "description": description,
             "confidence": int(confidence),
         })
@@ -177,20 +183,30 @@ def main():
 
     p.add_argument('-d', '--debug', dest='debug', action="store_true")
 
-    p.add_argument('--remote', help="specify the remote uri [default %(default)s]", default=REMOTE)
-    p.add_argument("--token", dest="token", help="specify token [default %(default)s]", default=TOKEN)
+    p.add_argument('--remote',
+                   help="specify the remote uri [default %(default)s]",
+                   default=REMOTE)
+    p.add_argument("--token", dest="token",
+                   help="specify token [default %(default)s]", default=TOKEN)
 
-    p.add_argument("--limit", dest="limit", help="limit the number of records processed", default=500)
+    p.add_argument("--limit", dest="limit",
+                   help="limit the number of records processed", default=500)
     p.add_argument("--last-run-cache", default=LAST_RUN_CACHE)
-    p.add_argument("--past-hours", help="number of hours to go back and retrieve", default=24)
+    p.add_argument("--past-hours",
+                   help="number of hours to go back and retrieve", default=24)
 
-    p.add_argument("--no-last-run", help="do not modify lastrun file", action="store_true")
+    p.add_argument("--no-last-run", help="do not modify lastrun file",
+                   action="store_true")
 
-    p.add_argument('--indicator-create', help="specify an indicator to be created")
-    p.add_argument('-c', '--confidence', help="specify confidence level of indicator [default %(default)s",
+    p.add_argument('--indicator-create',
+                   help="specify an indicator to be created")
+    p.add_argument('-c', '--confidence',
+                   help="specify confidence level of indicator [default %(default)s",
                    default=CONFIDENCE_DEFAULT)
     p.add_argument('--description', help='description of indicator')
-    p.add_argument('--lasttime', help='last time indicator was observed [default %s(default)s]',
+    p.add_argument('--last_at',
+                   help='last time indicator was observed '
+                        '[default %s(default)s]',
                    default=datetime.utcnow())
 
     p.add_argument('--group')
@@ -207,14 +223,17 @@ def main():
     logging.getLogger('').addHandler(console)
 
     if args.remote == REMOTE_DEFAULT:
-        print("\nThe correct API REMOTE URI needs to be supplied\nContact support@ecrimex.net for more information.\n")
+        print("\nThe correct API REMOTE URI needs to be supplied\n"
+              "Contact support@ecrimex.net for more information.\n")
         raise SystemExit
 
     if args.indicator_create:
         cli = Client()
         try:
-            r = cli.indicators_create(indicator=args.indicator_create, confidence=args.confidence,
-                                      description=args.description, lasttime=args.lasttime)
+            r = cli.indicators_create(indicator=args.indicator_create,
+                                      confidence=args.confidence,
+                                      description=args.description,
+                                      lasttime=args.lasttime)
             logger.info('indicator created successfully: {}'.format(r['id']))
             if args.debug:
                 pprint(r)
@@ -228,9 +247,16 @@ def main():
     cli = Client(hours=args.past_hours)
 
     indicators = cli.indicators(no_last_run=args.no_last_run, limit=args.limit)
+    cols = ['last_at',
+            'indicator',
+            'confidence',
+            'description']
 
-    for s in get_lines(reversed(list(indicators)), cols=['lasttime', 'indicator', 'confidence', 'description']):
-        print(s)
+    for l in FORMATS['table'](data=sorted(indicators,
+                                          key=lambda i: i['reported_at']),
+                              cols=cols):
+        print(l)
+
 
 if __name__ == "__main__":
     main()
