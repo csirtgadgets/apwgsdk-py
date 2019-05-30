@@ -3,9 +3,9 @@ from setuptools import setup, find_packages
 import versioneer
 import sys
 
-# vagrant doesn't appreciate hard-linking
-if os.environ.get('USER') == 'vagrant' or os.path.isdir('/vagrant'):
-    del os.link
+if sys.version_info < (3, 6):
+    sys.exit('Sorry, Python < 3,6 is not supported')
+
 
 # https://www.pydanny.com/python-dot-py-tricks.html
 if sys.argv[-1] == 'test':
