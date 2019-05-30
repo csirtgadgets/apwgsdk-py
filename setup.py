@@ -39,11 +39,11 @@ setup(
     ],
     keywords=['network', 'security'],
     author="Wes Young",
-    author_email="wes@csirtgadgets.org",
+    author_email="wes@csirtgadgets.com",
     packages=find_packages(),
     install_requires=[
         'requests',
-        'csirtg_indicator'
+        'csirtg_indicator>=2.0,<3.0'
     ],
     entry_points={
        'console_scripts': [
