@@ -104,14 +104,15 @@ class Client(object):
         with open(os.path.join(self.last_run_file, "lastrun"), "w") as f:
             f.write(str(end))
 
-    def indicators(self, limit=500, no_last_run=False, confidence=4):
+    def indicators(self, feed='phish', limit=500, no_last_run=False, confidence=4):
         start, end = self._last_run()
         if isinstance(limit, str):
             limit = int(limit)
 
-        uri = "{}?t={}&dd_date_start={}&dd_date_end={}&confidence_low=90"\
+        uri = "{}/{}?t={}&dd_date_start={}&dd_date_end={}&confidence_low=90"\
             .format(
                 self.remote,
+                feed,
                 self.token,
                 start.strftime('%s'),
                 end.strftime('%s'),
@@ -119,17 +120,31 @@ class Client(object):
 
         body = self._get(uri)
 
-        for i in body['_embedded']['phish']:
-            i["url"] = i["url"].lstrip()
+        if feed == 'mal_ip':
+            feed = 'mal_ips'
+
+        for i in body['_embedded'][feed]:
+            indicator = None
+            rdata = None
+            if i.get('url'):
+                i["url"] = i["url"].lstrip()
+                indicator = i['url']
+                rdata = i.get('ip')
+                del i['ip']
+
+            if i.get('ip'):
+                indicator = i['ip']
+
             yield Indicator(**{
-                "indicator": i["url"],
+                "indicator": indicator,
                 "last_at": datetime.fromtimestamp(i['date_discovered'])
                             .strftime("%Y-%m-%dT%H:%M:%SZ"),
                 "tags": 'phishing',
                 "description": i["brand"],
                 "confidence": confidence,
-                "itype": "url",
                 "provider": "apwg.org",
+                "tlp": "amber",
+                'rdata': rdata
             })
 
             if limit is not None:
