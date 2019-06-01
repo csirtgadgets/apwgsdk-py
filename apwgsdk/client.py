@@ -119,9 +119,11 @@ class Client(object):
             )
 
         body = self._get(uri)
-
+        tags = "phishing"
+        
         if feed == 'mal_ip':
             feed = 'mal_ips'
+            tags = 'scanner'
 
         for i in body['_embedded'][feed]:
             indicator = None
@@ -139,12 +141,12 @@ class Client(object):
                 "indicator": indicator,
                 "last_at": datetime.fromtimestamp(i['date_discovered'])
                             .strftime("%Y-%m-%dT%H:%M:%SZ"),
-                "tags": 'phishing',
                 "description": i["brand"],
                 "confidence": confidence,
                 "provider": "apwg.org",
                 "tlp": "amber",
-                'rdata': rdata
+                'rdata': rdata,
+                "tags": tags
             })
 
             if limit is not None:
