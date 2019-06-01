@@ -20,7 +20,7 @@ def test_client():
 
     cli._get = _get
 
-    r = cli.indicators(5, no_last_run=True)
+    r = cli.indicators(limit=5, no_last_run=True)
     r = list(r)
 
     assert r[0].itype == 'url'
